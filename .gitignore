@@ -9,3 +9,10 @@
 
 # VS Code files
 .vscode/
+
+# DLLs and specific libraries
+*.dll
+
+# Unrelated project folders (Adjust names if you keep them for reference)
+PingPong/
+Snake/
