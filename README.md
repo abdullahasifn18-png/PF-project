@@ -1,8 +1,12 @@
-# Raylib C++ Starter Template
+# PF-project: Space Shooter Game (Raylib C++ Template)
 
-Raylib C++ Starter Template for Visual Studio Code on Windows.
+Space Shooter is the main project for the Programming Fundamentals course.
 
-This demo project contains a bouncing ball raylib example program.
+---
+
+## Raylib C++ Starter Template
+
+This project is built upon the Raylib C++ Starter Template for Visual Studio Code on Windows.
 
 It works with raylib version 4.5.
 Tested on both Windows 10 and Windows 11.
@@ -23,4 +27,3 @@ Tested on both Windows 10 and Windows 11.
 | 📺 <a href="https://www.youtube.com/channel/UC3ivOTE5EgpmF2DHLBmWIWg">My YouTube Channel</a>
 | 🌍 <a href="https://www.programmingwithnick.com">My Website</a> | <br>
 </p>
-
