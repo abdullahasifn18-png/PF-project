@@ -1,0 +1,11 @@
+# Executables and object files
+*.exe
+*.out
+*.o
+
+# Raylib build specific
+/build/
+/bin/
+
+# VS Code files
+.vscode/
