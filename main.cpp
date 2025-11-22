@@ -4,112 +4,158 @@
 using namespace std;
 int playerScore = 0;
 int playerLives = 3;
-struct spaceShip
+struct bullets
 {
-    // attribute or qualities
-    float x, y;
-    float width, height;
-    int speed; // only for y axis as only up down
+    float radius;
+    float xBullet, yBullet;
+    int bulletSpeedX, bulletSpeedY;
     void Draw()
-    { // functions inside structs are called methods
-        DrawRectangle(x, y, width, height, WHITE);
+    {
+        DrawCircle(xBullet, yBullet, radius, WHITE);
     }
     void Update()
     {
+        yBullet -= bulletSpeedY; // moves up
+    }
+};
+struct spaceShip
+{
+    // attribute or qualities
+    float xShip, yShip;
+    float widthShip, heightShip;
+    int speedShip; // only for y axis as only up down
+    void Draw()
+    { // functions inside structs are called methods
+        DrawRectangle(xShip, yShip, widthShip, heightShip, WHITE);
+    }
+    void Update(bullets bullet[], int &bulletCount)
+    {
         if (IsKeyDown(KEY_RIGHT))
         {
-            x = x + speed; // as neeche positive y
+            xShip = xShip + speedShip;
         }
         else if (IsKeyDown(KEY_LEFT))
         {
-            x = x - speed; // as neeche positive y
+            xShip = xShip - speedShip;
         }
-        if (x <= 0)
-        { // for not moving out of the upper bound
-            x = 0;
-        }
-        else if (x + width >= GetScreenWidth())
+        // for not moving out of the upper bound
+        if (xShip <= 0)
+            xShip = 0;
+        else if (xShip + widthShip >= GetScreenWidth())
+            xShip = GetScreenWidth() - widthShip;
+
+        // for bullets
+        if (IsKeyPressed(KEY_SPACE))
         {
-            x = GetScreenWidth() - width;
+            bullet[bulletCount].xBullet = xShip + widthShip / 2;
+            bullet[bulletCount].yBullet = yShip;
+            bullet[bulletCount].bulletSpeedY = 15;
+            bullet[bulletCount].radius = 5;
+            bulletCount++;
+            if (bulletCount >= 100)
+                bulletCount = 0; // dubara zero se start
         }
     }
 };
 struct enemy
 {
-    float x, y;
-    float width, height;
+    float xEnemy, yEnemy;
+    float widthEnemy, heightEnemy;
     int speed;
     void Draw()
     {
-        DrawRectangle(x, y, width, height, WHITE);
+        DrawRectangle(xEnemy, yEnemy, widthEnemy, heightEnemy, WHITE);
     }
     void Update()
     {
-        y += speed; // moves down
-        if (y > GetScreenHeight())//for respawning
+        yEnemy += speed;                // moves down
+        if (yEnemy > GetScreenHeight()) // for respawning
         {
-            y = -30;
-            x = rand() % +(GetScreenWidth() - 20);
+            yEnemy = -30;
+            xEnemy = rand() % +(GetScreenWidth() - 20);
+            playerLives -= 1;
         }
-    }
-};
-struct bullets
-{
-    float radius;
-    float x, y;
-    int speedX, speedY;
-    void Draw()
-    {
-        DrawCircle(x, y, radius, WHITE);
-    }
-    void Update()
-    {
-        y -= speedY; // moves up
+        // if ((xEnemy + heightEnemy) >= GetScreenHeight()) // cpu wins
     }
 };
 void setAsteroids(enemy a[], int size)
 {
     srand(time(0));
-
+    // interacting with the elements of the enemy
     for (int i = 0; i < size; i++)
     {
-        a[i].width = 20;
-        a[i].height = 20;
-        a[i].x = rand() % (GetScreenWidth() - 10);
-        a[i].y = -100; // the height of rectangle starts from the top left of the rec
-        a[i].speed = 3;
+        a[i].widthEnemy = (rand() % 21) + 15;
+        a[i].heightEnemy = (rand() % 21) + 15;
+        // so that they spawn randomly
+        a[i].xEnemy = rand() % (GetScreenWidth() - 10);
+        a[i].yEnemy = rand() % (GetScreenHeight() - 700);
+        a[i].speed = 1;
     }
 };
 spaceShip ship;
-enemy asteroid[10];
+enemy asteroid[3];
+bullets bullet[100];
+int bulletCount = 0;
 
 int main()
 {
-    const int screenWidth = 1280;
+    const int screenWidth = 1000;
     const int screenHeight = 800;
     InitWindow(screenWidth, screenHeight, "Space Shooter");
     SetTargetFPS(60);
     // initializations or interaction with the elements
-    ship.width = 50;
-    ship.height = 25;
-    ship.x = screenHeight - ship.height - 10;
-    ship.y = screenWidth / 2 - ship.width / 2; // the height of rectangle starts from the top left of the rec
-    ship.speed = 8;
+    ship.widthShip = 50;
+    ship.heightShip = 25;
+    ship.xShip = screenWidth / 2 - ship.widthShip / 2; // at horizontal center
+    ship.yShip = screenHeight - ship.heightShip - 10;  // Bottom of screen
+    ship.speedShip = 9;
 
-    setAsteroids(asteroid, 10);
+    setAsteroids(asteroid, 3);
 
     // game loop
     while (WindowShouldClose() == false)
     {
         BeginDrawing();
         ClearBackground(BLACK);
-        ship.Update();
+        ship.Update(bullet, bulletCount);
+
         ship.Draw();
-        for (int i = 0; i < 10; i++)
+        for (int i = 0; i < 3; i++)
         {
             asteroid[i].Update();
             asteroid[i].Draw();
         }
+        for (int i = 0; i < 100; i++)
+        {
+            bullet[i].Update();
+            bullet[i].Draw();
+        }
+        for (int b = 0; b < 100; b++)
+        {
+            if (bullet[b].bulletSpeedY > 0)
+            { // checking for active bullets
+                for (int a = 0; a < 3; a++)
+                {
+                    if (CheckCollisionCircleRec(Vector2{bullet[b].xBullet, bullet[b].yBullet}, bullet[b].radius, Rectangle{asteroid[a].xEnemy, asteroid[a].yEnemy, asteroid[a].widthEnemy, asteroid[a].heightEnemy}))
+                    //                           from this           bullet center                       radius
+                    { // for removal
+                        asteroid[a].yEnemy = -100;
+                        bullet[b].yBullet = -100;
+
+                        bullet[b].bulletSpeedY = 0;//stop bullet
+
+                        asteroid[a].xEnemy = rand() % (GetScreenWidth() - 20);
+
+                        playerScore += 10;
+                    }
+                }
+            }
+        }
+        if (playerLives <= 0)
+            DrawText("GAME OVER", GetScreenWidth() / 2 - 100, GetScreenHeight() / 2, 40, WHITE);
+
+        DrawText(TextFormat("SCORE: %d", playerScore), 10, 10, 20, WHITE);
+        DrawText(TextFormat("LIVES: %d", playerLives), 10, 40, 20, WHITE);
 
         EndDrawing();
     }
