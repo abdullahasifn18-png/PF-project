@@ -1,0 +1,33 @@
+for (int i = 0; i < maxBullets; i++)
+            {
+                if (bullet[i].bulletSpeedY <= 0)
+                    continue;
+
+                for (int j = 0; j < activeGerms; j++)
+                {
+                    if (CheckCollisionCircleRec(
+                            Vector2{(float)bullet[i].xBullet, (float)bullet[i].yBullet},
+                            (float)bullet[i].radius,
+                            Rectangle{(float)germs[j].xEnemy, (float)germs[j].yEnemy, (float)germs[j].widthEnemy, (float)germs[j].heightEnemy}))
+                    {
+                        PlaySound(explosionSound);
+                        bullet[i].bulletSpeedY = 0;
+                        bullet[i].yBullet = -20;
+
+                        germs[j].yEnemy = -100;
+                        germs[j].xEnemy = rand() % (GetScreenWidth() - 20); // 0 to 879
+
+                        playerScore += 10;
+                    }
+                }
+            }
+            for (int j = 0; j < activeGerms; j++)
+            {
+                if (CheckCollisionRecs(
+                        Rectangle{(float)ship.xShip, (float)ship.yShip, (float)ship.widthShip, (float)ship.heightShip},
+                        Rectangle{(float)germs[j].xEnemy, (float)germs[j].yEnemy, (float)germs[j].widthEnemy, (float)germs[j].heightEnemy}))
+                {
+                    playerLives -= 2;       // if germ collides with the ship -2 lives
+                    germs[j].yEnemy = -100; // remove from screen
+                }
+            }
