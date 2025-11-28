@@ -17,7 +17,6 @@ void LoadHighScore();
 void SaveHighScore();
 
 const int maxBullets = 100;
-// CHANGED: maxAsteroids to maxGerms
 const int maxGerms = 7; 
 const int maxLevel = 5;
 const int perLevelScore = 100;
@@ -37,7 +36,7 @@ const int gameWonState = 3;
 extern int currentState;
 extern int currentLevel;
 extern int gameMode;
-extern int activeGerms; // Matches the .cpp definition now
+extern int activeGerms; 
 extern int playerScore;
 extern int playerLives;
 extern float baseEnemySpeed;
