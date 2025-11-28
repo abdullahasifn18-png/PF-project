@@ -279,11 +279,11 @@ int main()
             DrawText("GOOD LUCK ! ", 375, 480, 20, LIGHTGRAY);
 
             if (IsKeyPressed(KEY_ONE))
-                StartGame(0, 1, 2.5f);
+                StartGame(0, 1, 3);
             if (IsKeyPressed(KEY_TWO))
-                StartGame(1, 2, 3.0f);
+                StartGame(1, 2, 3.5);
             if (IsKeyPressed(KEY_THREE))
-                StartGame(2, 3, 3.5);
+                StartGame(2, 3, 4);
         }
         else if (currentState == playingState)
         {
@@ -360,11 +360,15 @@ int main()
                     if (currentLevel == 3)
                         playerLives += 1;
 
-                    float speedMultiplier = 1.0 + (currentLevel * 0.2);
-                    int countIncrease = currentLevel / 2; // increases germs for every even level 2,4
+                    float speedMultiplier = 1 + (currentLevel * 0.4);
+                    //int countIncrease = currentLevel / 3; // increases germs for every even level 2,4
                     float newSpeed = baseEnemySpeed * speedMultiplier;
+                    if(currentLevel==3)
+                        activeGerms+=1;
+                    if(currentLevel==5)
+                        activeGerms+=1;    
 
-                    activeGerms = activeGerms + countIncrease;
+                    //activeGerms = activeGerms + countIncrease;
                     if (activeGerms > maxGerms)
                         activeGerms = maxGerms;
                     if (newSpeed > 8.0)
