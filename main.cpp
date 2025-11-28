@@ -1,164 +1,465 @@
-#include <iostream>
-#include <raylib.h>
+#include "game.h"
 #include <time.h>
-using namespace std;
-int playerScore = 0;
-int playerLives = 3;
-struct bullets
-{
-    float radius;
-    float xBullet, yBullet;
-    int bulletSpeedX, bulletSpeedY;
-    void Draw()
-    {
-        DrawCircle(xBullet, yBullet, radius, WHITE);
-    }
-    void Update()
-    {
-        yBullet -= bulletSpeedY; // moves up
-    }
-};
-struct spaceShip
-{
-    // attribute or qualities
-    float xShip, yShip;
-    float widthShip, heightShip;
-    int speedShip; // only for y axis as only up down
-    void Draw()
-    { // functions inside structs are called methods
-        DrawRectangle(xShip, yShip, widthShip, heightShip, WHITE);
-    }
-    void Update(bullets bullet[], int &bulletCount)
-    {
-        if (IsKeyDown(KEY_RIGHT))
-        {
-            xShip = xShip + speedShip;
-        }
-        else if (IsKeyDown(KEY_LEFT))
-        {
-            xShip = xShip - speedShip;
-        }
-        // for not moving out of the upper bound
-        if (xShip <= 0)
-            xShip = 0;
-        else if (xShip + widthShip >= GetScreenWidth())
-            xShip = GetScreenWidth() - widthShip;
+// when we use rand()% 5, values get selected from 0-4
+// floats instead of int for smoothness
 
-        // for bullets
-        if (IsKeyPressed(KEY_SPACE))
+int highScore[3] = {0, 0, 0};
+
+Texture2D bulletTexture;
+Texture2D enemyTexture;
+
+int currentState = menuState;
+int currentLevel = 1;
+int gameMode = 0;
+int activeGerms = 2;
+float baseEnemySpeed = 2.0;
+int messageLevel = 0;
+int messageFrames = 0;
+float messageAlpha = 0.0f;
+int previousLevel = 1;
+
+int playerScore = 0;
+int playerLives = 5;
+
+// definations
+
+void LoadHighScore()
+{
+    ifstream file("highscore.txt");
+    if (file.is_open())
+    {
+        for (int i = 0; i < 3; i++)
+            file >> highScore[i];
+        file.close();
+    }
+    else
+    {
+        for (int i = 0; i < 3; i++)
+            highScore[i] = 0;
+    }
+}
+
+void SaveHighScore()
+{
+    ofstream file("highscore.txt");
+    for (int i = 0; i < 3; i++)
+        file << highScore[i] << " ";
+    file.close();
+}
+
+// functions inside structs are called methods
+void bullets::Draw()
+{
+    if (bulletSpeedY > 0)
+        DrawTexture(texture, xBullet - texture.width / 2, yBullet, WHITE);
+}
+
+void bullets::Update()
+{
+    if (bulletSpeedY > 0)
+        yBullet -= bulletSpeedY;
+
+    if (yBullet < 0)
+    {
+        bulletSpeedY = 0;
+        yBullet = -20;
+    }
+}
+
+void spaceShip::Draw()
+{
+    DrawTexture(texture, xShip, yShip, WHITE);
+}
+
+void spaceShip::Update(bullets bullet[])
+{
+    if (IsKeyDown(KEY_RIGHT) || IsKeyDown(KEY_D))
+        xShip += speedShip;
+    if (IsKeyDown(KEY_LEFT) || IsKeyDown(KEY_A))
+        xShip -= speedShip;
+
+    if (xShip < 0)
+        xShip = 0;
+    if (xShip + widthShip > GetScreenWidth())
+        xShip = GetScreenWidth() - widthShip;
+
+    if (IsKeyPressed(KEY_SPACE))
+    {
+        int shots=0;
+
+        if (currentLevel == 3 || currentLevel == 4)
         {
-            bullet[bulletCount].xBullet = xShip + widthShip / 2;
-            bullet[bulletCount].yBullet = yShip;
-            bullet[bulletCount].bulletSpeedY = 15;
-            bullet[bulletCount].radius = 5;
-            bulletCount++;
-            if (bulletCount >= 100)
-                bulletCount = 0; // dubara zero se start
+            shots = 2; 
+        }
+        else if (currentLevel == 5)
+        {
+            shots = 3; 
+        }
+        else
+        {
+            shots = 1; 
+        }
+        int centerX = xShip + widthShip / 2;
+        int offset = 20;
+
+        int fired = 0;
+        for (int i = 0; i < maxBullets && fired < shots; i++)
+        {
+            if (bullet[i].bulletSpeedY == 0)
+            {
+                int xPosition;
+                if (shots == 1)
+                {
+                    xPosition = centerX;
+                }
+                else
+                {
+                    xPosition = centerX + (fired - (shots - 1) / 2) * offset;
+                }
+                bullet[i].xBullet = xPosition;
+                bullet[i].yBullet = yShip;
+                bullet[i].radius = 5;
+                bullet[i].bulletSpeedY = 15;
+                fired++;
+            }
         }
     }
-};
-struct enemy
+}
+
+void enemy::Draw()
 {
-    float xEnemy, yEnemy;
-    float widthEnemy, heightEnemy;
-    int speed;
-    void Draw()
-    {
-        DrawRectangle(xEnemy, yEnemy, widthEnemy, heightEnemy, WHITE);
-    }
-    void Update()
-    {
-        yEnemy += speed;                // moves down
-        if (yEnemy > GetScreenHeight()) // for respawning
-        {
-            yEnemy = -30;
-            xEnemy = rand() % +(GetScreenWidth() - 20);
-            playerLives -= 1;
-        }
-        // if ((xEnemy + heightEnemy) >= GetScreenHeight()) // cpu wins
-    }
-};
-void setAsteroids(enemy a[], int size)
+    DrawTexture(texture, xEnemy, yEnemy, WHITE);
+}
+
+void enemy::Update()
 {
-    srand(time(0));
-    // interacting with the elements of the enemy
-    for (int i = 0; i < size; i++)
+    yEnemy += (int)yVelocity;
+    xEnemy += (int)xVelocity;
+
+    if (xEnemy <= 0)
     {
-        a[i].widthEnemy = (rand() % 21) + 15;
-        a[i].heightEnemy = (rand() % 21) + 15;
-        // so that they spawn randomly
-        a[i].xEnemy = rand() % (GetScreenWidth() - 10);
-        a[i].yEnemy = rand() % (GetScreenHeight() - 700);
-        a[i].speed = 1;
+        xEnemy = 0;
+        if (xVelocity < 0)
+            xVelocity = -xVelocity;
     }
-};
+    else if (xEnemy + widthEnemy >= screenWidth)
+    {
+        xEnemy = screenWidth - widthEnemy;
+        if (xVelocity > 0)
+            xVelocity = -xVelocity;
+    }
+
+    if (yEnemy > GetScreenHeight())
+    {
+        yEnemy = -50 - (rand() % 151);
+        xEnemy = rand() % (screenWidth - widthEnemy + 1);
+        int speed = 1 + rand() % 2;
+        int direction = (rand() % 2 == 0) ? 1 : -1;
+        xVelocity = speed * direction;
+
+        playerLives -= 1;
+    }
+}
+
+// Fixed: Added count parameter usage to avoid undefined errors
+void setEnemies(enemy a[], int maxGermsCount, float speedValue, Texture2D tex)
+{
+    for (int i = 0; i < maxGermsCount; i++)
+    {
+        a[i].widthEnemy = tex.width;
+        a[i].heightEnemy = tex.height;
+        a[i].texture = tex;
+
+        a[i].xEnemy = rand() % (GetScreenWidth() - a[i].widthEnemy + 1);
+        a[i].yEnemy = -50 - (rand() % 101);
+        a[i].xVelocity = -2 + rand() % 5;
+        a[i].yVelocity = speedValue;
+    }
+}
+
+// objects
+
+Star stars[100];
 spaceShip ship;
-enemy asteroid[3];
-bullets bullet[100];
-int bulletCount = 0;
+enemy germs[maxGerms];
+bullets bullet[maxBullets];
+
+void resetGame(int screenWidth, int screenHeight)
+{
+    playerScore = 0;
+    playerLives = 5;
+    currentLevel = 1;
+
+    for (int i = 0; i < maxBullets; i++)
+    {
+        bullet[i].bulletSpeedY = 0;
+        bullet[i].yBullet = -100;
+    }
+}
+
+void StartGame(int mode, int germsCount, float speed)
+{
+    gameMode = mode;
+    activeGerms = germsCount;
+    baseEnemySpeed = speed;
+
+    resetGame(screenWidth, screenHeight);
+    setEnemies(germs, activeGerms, baseEnemySpeed, enemyTexture);
+
+    currentState = playingState;
+}
 
 int main()
 {
-    const int screenWidth = 1000;
-    const int screenHeight = 800;
+    srand(time(0));
     InitWindow(screenWidth, screenHeight, "Space Shooter");
     SetTargetFPS(60);
-    // initializations or interaction with the elements
-    ship.widthShip = 50;
-    ship.heightShip = 25;
-    ship.xShip = screenWidth / 2 - ship.widthShip / 2; // at horizontal center
-    ship.yShip = screenHeight - ship.heightShip - 10;  // Bottom of screen
-    ship.speedShip = 9;
+    InitAudioDevice();
+    Sound explosionSound = LoadSound("Sounds/oggexplosion.ogg");
 
-    setAsteroids(asteroid, 3);
+    // Load textures
+    Image spaceshipImage = LoadImage("Graphics/ship3.png");
+    ImageResize(&spaceshipImage, desiredShipWidth, desiredShipHeight);
+    ship.texture = LoadTextureFromImage(spaceshipImage);
+    UnloadImage(spaceshipImage);
 
-    // game loop
-    while (WindowShouldClose() == false)
+    Image bulletImage = LoadImage("Graphics/laserBullet.png");
+    ImageResize(&bulletImage, desiredBulletSize, desiredBulletSize);
+    bulletTexture = LoadTextureFromImage(bulletImage);
+    UnloadImage(bulletImage);
+
+    Image enemyImage = LoadImage("Graphics/enemy4.png");
+    ImageResize(&enemyImage, desiredEnemySize, desiredEnemySize);
+    enemyTexture = LoadTextureFromImage(enemyImage);
+    UnloadImage(enemyImage);
+
+    // Initializing ship, bullets, germs and stars
+    ship.widthShip = ship.texture.width;
+    ship.heightShip = ship.texture.height;
+    ship.xShip = screenWidth / 2 - ship.widthShip / 2;
+    ship.yShip = screenHeight - ship.heightShip - 10;
+    ship.speedShip = 10;
+
+    for (int i = 0; i < maxBullets; i++)
+    {
+        bullet[i].texture = bulletTexture;
+        bullet[i].radius = desiredBulletSize / 2;
+    }
+
+    setEnemies(germs, activeGerms, 2, enemyTexture);
+
+    for (int i = 0; i < 100; i++)
+    {
+        stars[i].x = rand() % screenWidth;  // 0 to 899
+        stars[i].y = rand() % screenHeight; // 0 to 699
+        stars[i].speed = rand() % 3 + 1;    // 1 to 3
+    }
+
+    LoadHighScore();
+
+    while (!WindowShouldClose())
     {
         BeginDrawing();
         ClearBackground(BLACK);
-        ship.Update(bullet, bulletCount);
 
-        ship.Draw();
-        for (int i = 0; i < 3; i++)
+        if (IsKeyPressed(KEY_Q))
+            break;
+
+        if (currentState == menuState)
         {
-            asteroid[i].Update();
-            asteroid[i].Draw();
+            DrawText("SPACE SHOOTER", screenWidth / 2 - 150, 100, 40, YELLOW);
+            DrawText("Select Difficulty:", screenWidth / 2 - 100, 200, 30, YELLOW);
+            DrawText("1 - EASY", screenWidth / 2 - 80, 250, 20, YELLOW);
+            DrawText("2 - MEDIUM", screenWidth / 2 - 80, 280, 20, YELLOW);
+            DrawText("3 - HARD", screenWidth / 2 - 80, 310, 20, YELLOW);
+            DrawText("Objective: Destroy enemies & survive.", 250, 360, 20, LIGHTGRAY);
+            DrawText("Controls: A D or Left Right Arrow Keys, SPACE Shoot, Q Quit", 155, 390, 20, LIGHTGRAY);
+            DrawText("There are 5 levels, at level 3 you get DoubleShot, at level 5 you get TripleShot", 50, 420, 20, LIGHTGRAY);
+            DrawText("To WIN you have to clear all five levels ", 250, 450, 20, LIGHTGRAY);
+            DrawText("GOOD LUCK ! ", 375, 480, 20, LIGHTGRAY);
+
+            if (IsKeyPressed(KEY_ONE))
+                StartGame(0, 1, 2.5f);
+            if (IsKeyPressed(KEY_TWO))
+                StartGame(1, 2, 3.0f);
+            if (IsKeyPressed(KEY_THREE))
+                StartGame(2, 3, 3.5);
         }
-        for (int i = 0; i < 100; i++)
+        else if (currentState == playingState)
         {
-            bullet[i].Update();
-            bullet[i].Draw();
-        }
-        for (int b = 0; b < 100; b++)
-        {
-            if (bullet[b].bulletSpeedY > 0)
-            { // checking for active bullets
-                for (int a = 0; a < 3; a++)
+            // create stars
+            for (int i = 0; i < 100; i++)
+            {
+                stars[i].y += stars[i].speed; // fall down
+
+                if (stars[i].y > screenHeight)
                 {
-                    if (CheckCollisionCircleRec(Vector2{bullet[b].xBullet, bullet[b].yBullet}, bullet[b].radius, Rectangle{asteroid[a].xEnemy, asteroid[a].yEnemy, asteroid[a].widthEnemy, asteroid[a].heightEnemy}))
-                    //                           from this           bullet center                       radius
-                    { // for removal
-                        asteroid[a].yEnemy = -100;
-                        bullet[b].yBullet = -100;
+                    stars[i].x = rand() % screenWidth; // 0 to 899
+                    stars[i].y = -10;
+                }
 
-                        bullet[b].bulletSpeedY = 0;//stop bullet
+                DrawPixel(stars[i].x, stars[i].y, WHITE);
+            }
 
-                        asteroid[a].xEnemy = rand() % (GetScreenWidth() - 20);
+            ship.Update(bullet);
+            for (int i = 0; i < activeGerms; i++)
+            {
+                germs[i].Update();
+            }
+            for (int i = 0; i < maxBullets; i++)
+            {
+                bullet[i].Update();
+            }
+
+            for (int i = 0; i < maxBullets; i++)
+            {
+                if (bullet[i].bulletSpeedY <= 0)
+                    continue;
+
+                for (int j = 0; j < activeGerms; j++)
+                {
+                    if (CheckCollisionCircleRec(
+                            Vector2{(float)bullet[i].xBullet, (float)bullet[i].yBullet},
+                            (float)bullet[i].radius,
+                            Rectangle{(float)germs[j].xEnemy, (float)germs[j].yEnemy, (float)germs[j].widthEnemy, (float)germs[j].heightEnemy}))
+                    {
+                        PlaySound(explosionSound);
+                        bullet[i].bulletSpeedY = 0;
+                        bullet[i].yBullet = -20;
+
+                        germs[j].yEnemy = -100;
+                        germs[j].xEnemy = rand() % (GetScreenWidth() - 20); // 0 to 879
 
                         playerScore += 10;
                     }
                 }
             }
-        }
-        if (playerLives <= 0)
-            DrawText("GAME OVER", GetScreenWidth() / 2 - 100, GetScreenHeight() / 2, 40, WHITE);
+            for (int j = 0; j < activeGerms; j++)
+            {
+                if (CheckCollisionRecs(
+                        Rectangle{(float)ship.xShip, (float)ship.yShip, (float)ship.widthShip, (float)ship.heightShip},
+                        Rectangle{(float)germs[j].xEnemy, (float)germs[j].yEnemy, (float)germs[j].widthEnemy, (float)germs[j].heightEnemy}))
+                {
+                    playerLives -= 2;       // if germ collides with the ship -2 lives
+                    germs[j].yEnemy = -100; // remove from screen
+                }
+            }
 
-        DrawText(TextFormat("SCORE: %d", playerScore), 10, 10, 20, WHITE);
-        DrawText(TextFormat("LIVES: %d", playerLives), 10, 40, 20, WHITE);
+            int targetScoreForEachLevel = currentLevel * perLevelScore;
+
+            if (playerScore >= targetScoreForEachLevel)
+            {
+                if (currentLevel < maxLevel)
+                {
+                    currentLevel++;
+                    messageLevel = currentLevel;
+                    messageFrames = 120;
+                    messageAlpha = 1.0;
+                    previousLevel = currentLevel;
+
+                    if (currentLevel == 3)
+                        playerLives += 1;
+
+                    float speedMultiplier = 1.0 + (currentLevel * 0.2);
+                    int countIncrease = currentLevel / 2; // increases germs for every even level 2,4
+                    float newSpeed = baseEnemySpeed * speedMultiplier;
+
+                    activeGerms = activeGerms + countIncrease;
+                    if (activeGerms > maxGerms)
+                        activeGerms = maxGerms;
+                    if (newSpeed > 8.0)
+                        newSpeed = 8.0;
+
+                    // Re-initialize enemies for the new level
+                    setEnemies(germs, activeGerms, newSpeed, enemyTexture);
+                }
+                else
+                {
+                    currentState = gameWonState;
+                }
+            }
+            if (playerLives <= 0)
+            {
+                currentState = gameOverState;
+            }
+            ship.Draw();
+            for (int i = 0; i < activeGerms; i++)
+            {
+                germs[i].Draw();
+            }
+            for (int i = 0; i < maxBullets; i++)
+            {
+                bullet[i].Draw();
+            }
+            // Update high score if playerScore exceeds it
+            if (playerScore > highScore[gameMode])
+            {
+                highScore[gameMode] = playerScore;
+                SaveHighScore();
+            }
+
+            // Draw high score
+            DrawText(TextFormat("Score : %d", playerScore), 10, 10, 20, YELLOW); //%d is used for integars
+            DrawText(TextFormat("Lives : %d", playerLives), 10, 40, 20, YELLOW);
+            DrawText(TextFormat("Level : %d", currentLevel), 10, 70, 20, YELLOW);
+            DrawText(TextFormat("High Score : %d", highScore[gameMode]), 10, 100, 20, GREEN);
+            if (messageFrames > 0)
+            {
+                messageFrames--;
+
+                // message fade per frame
+                messageAlpha = messageAlpha - 0.01;
+                if (messageAlpha < 0)
+                    messageAlpha = 0;
+            }
+            if (messageFrames > 0)
+            {
+                DrawText(TextFormat("LEVEL %d", messageLevel), screenWidth / 2 - 60, screenHeight / 2 - 80, 30, Fade(BLUE, messageAlpha));
+            }
+
+            if (messageFrames > 0)
+            {
+                if (messageLevel == 3)
+                {
+                    DrawText("LIFE POWER-UP & DOUBLE SHOT!", screenWidth / 2 - 220, screenHeight / 2 - 20, 25, Fade(GREEN, messageAlpha));
+                }
+                if (messageLevel == 5)
+                {
+                    DrawText("TRIPLE SHOT ACTIVATED!", screenWidth / 2 - 150, screenHeight / 2, 25, Fade(YELLOW, messageAlpha));
+                }
+            }
+        }
+        else if (currentState == gameOverState)
+        {
+            DrawText("GAME OVER !", screenWidth / 2 - 100, screenHeight / 2 - 50, 40, RED);
+            DrawText(TextFormat("Final Score: %d", playerScore), screenWidth / 2 - 120, screenHeight / 2, 30, WHITE);
+            DrawText("Press M for Menu or Q to Quit", screenWidth / 2 - 150, screenHeight / 2 + 50, 20, WHITE);
+
+            if (IsKeyPressed(KEY_M))
+            {
+                currentState = menuState;
+            }
+        }
+        else if (currentState == gameWonState)
+        {
+            DrawText("YOU WIN !", screenWidth / 2 - 80, screenHeight / 2 - 50, 40, GREEN);
+            DrawText(TextFormat("Final Score: %d", playerScore), screenWidth / 2 - 120, screenHeight / 2, 30, WHITE);
+            DrawText("Press M for Menu or Q to Quit", screenWidth / 2 - 150, screenHeight / 2 + 50, 20, WHITE);
+
+            if (IsKeyPressed(KEY_M))
+            {
+                currentState = menuState;
+            }
+        }
 
         EndDrawing();
     }
+
+    UnloadTexture(ship.texture);
+    UnloadTexture(bulletTexture);
+    UnloadTexture(enemyTexture);
+    UnloadSound(explosionSound);
+    CloseAudioDevice();
     CloseWindow();
     return 0;
 }
